@@ -53,10 +53,10 @@ export default function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans selection:bg-blue-100">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-light selection:bg-blue-100">
     <div className="fixed top-6 left-6 z-50 flex items-center gap-3 bg-white/90 backdrop-blur-xl px-5 py-2.5 rounded-2xl shadow-sm border border-slate-200/60">
     <MapPin className="w-4 h-4 text-red-500" />
-    <span className="text-xs font-black text-slate-700">{locationName}</span>
+    <span className="text-xs font-black text-slate-700">Ianao dia eto {locationName}</span>
     </div>
 
     {currentView === 'landing' && <LandingPage onStart={() => setCurrentView('symptoms')} />}
@@ -186,7 +186,7 @@ function TriageResultsPage({ selectedSymptoms, locationName, onBack }: any) {
     <button onClick={() => window.location.href="tel:124"} className="bg-red-600 text-white px-10 py-5 rounded-[25px] font-black text-xs shadow-xl uppercase">Antsoy ny 124</button>
     </div>
 
-    <button onClick={onBack} className="mt-20 block mx-auto text-slate-300 font-black uppercase text-[10px] tracking-[0.4em] hover:text-blue-600 transition-colors underline underline-offset-8">
+    <button onClick={onBack} className="mt-20 block mx-auto text-slate-900 font-black uppercase text-[10px] tracking-[0.4em] hover:text-blue-600 transition-colors underline underline-offset-8">
     ← HIVERINA AM-PIANDOHANA
     </button>
     </div>
@@ -200,9 +200,9 @@ function LandingPage({ onStart }: { onStart: () => void }) {
     <div className="bg-white p-12 rounded-[55px] shadow-2xl border border-red-50 mb-10">
     <Heart className="w-20 h-20 text-red-600 animate-pulse" />
     </div>
-    <h1 className="text-6xl font-black mb-4 tracking-tighter italic text-blue-600">MADA-CARE <span className="text-slate-900">AI</span></h1>
-    <p className="max-w-xl text-lg text-slate-400 mb-12 font-medium">Fitaovana hifidianana toeram-pitsaboana mifanaraka amin'ny aretinao.</p>
-    <button onClick={onStart} className="bg-blue-600 text-white px-14 py-7 rounded-[35px] text-2xl font-black shadow-2xl flex items-center gap-4 hover:scale-105 transition-all uppercase">Hanomboka <ChevronRight size={24} /></button>
+    <h1 className="text-4xl font-black mb-4 tracking-tighter italic text-blue-600">MADA-CARE <span className="text-slate-900">AI</span> System</h1>
+    <p className="max-w-xl text-xl text-slate-900 mb-12 font-light ">Fitaovana hifidianana toeram-pitsaboana mifanaraka amin'ny aretinao.</p>
+    <button onClick={onStart} className="bg-blue-600 text-white px-14 py-4 rounded-[35px] text-xl font-light shadow-2xl flex items-center gap-4 hover:scale-105 transition-all uppercase">Hanomboka <ChevronRight size={24} /></button>
     </div>
   );
 }
@@ -230,7 +230,7 @@ function SymptomsPage({ allSymptoms, selectedSymptoms, setSelectedSymptoms, onBa
     <input
     type="text"
     placeholder="Inona no tsapanao?..."
-    className="w-full bg-transparent outline-none font-bold text-xl"
+    className="w-full bg-transparent outline-none font-medium text-xl"
     onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
     />
     </div>
@@ -244,7 +244,7 @@ function SymptomsPage({ allSymptoms, selectedSymptoms, setSelectedSymptoms, onBa
         selectedSymptoms.includes(s) ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'bg-slate-50 border-transparent text-slate-600 hover:bg-white hover:border-blue-100'
       }`}
       >
-      <span className="text-sm font-bold">{s}</span>
+      <span className="text-sm font-light">{s}</span>
       </button>
     ))}
     </div>
@@ -257,7 +257,7 @@ function SymptomsPage({ allSymptoms, selectedSymptoms, setSelectedSymptoms, onBa
     </div>
     <div className="lg:col-span-4">
     <div className="bg-white p-8 rounded-[40px] shadow-xl border border-blue-50 sticky top-28">
-    <h3 className="font-black text-slate-400 uppercase text-[10px] mb-6 flex items-center gap-2 italic">
+    <h3 className="font-black text-slate-900 uppercase text-[10px] mb-6 flex items-center gap-2 italic">
     <Stethoscope className="text-blue-600" size={16}/> VOAFIDY ({selectedSymptoms.length})
     </h3>
     <div className="space-y-2 mb-8 max-h-[300px] overflow-y-auto pr-2">
@@ -271,7 +271,7 @@ function SymptomsPage({ allSymptoms, selectedSymptoms, setSelectedSymptoms, onBa
     {selectedSymptoms.length > 0 && (
       <button onClick={onContinue} className="w-full bg-blue-600 text-white py-6 rounded-[28px] font-black text-sm shadow-2xl hover:bg-blue-700 transition-all uppercase tracking-tighter">Hijerjy ny vokatra</button>
     )}
-    <button onClick={onBack} className="w-full mt-4 text-[10px] font-black text-slate-300 text-center uppercase tracking-widest hover:text-blue-600">Hiverina</button>
+    <button onClick={onBack} className="w-full mt-4 text-[10px] font-black text-slate-900 text-center uppercase tracking-widest hover:text-blue-600">Hiverina</button>
     </div>
     </div>
     </div>
