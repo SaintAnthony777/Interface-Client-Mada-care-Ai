@@ -2,12 +2,13 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Activity, Ambulance, Heart, MapPin, Search,
   ChevronRight, ChevronLeft, X, Stethoscope, Building2,
-  AlertTriangle, Loader2
+  AlertTriangle, Loader2, Clock, CheckCircle2
 } from 'lucide-react';
 import medicalData from './data_mg.json';
 
 // --- CONFIGURATION ---
 const API_URL = "http://192.168.0.104:8080/predict";
+const AMBULANCE_URL = "http://192.168.0.104:8080/ambulances";
 
 // --- INTERFACES ---
 interface Etablissement {
@@ -17,10 +18,17 @@ interface Etablissement {
   categorie: string;
 }
 
+interface AmbulanceData {
+  ID: number;
+  refference: string;
+  status: string; // "libre" ou "en attente"
+}
+
 interface DiagnosisResponse {
   maladie: string;
   urgence: string;
-  etablissement: Etablissement[]; // C'est maintenant un tableau []
+  etablissement: Etablissement[];
+  ambulances: AmbulanceData[];
 }
 
 export default function App() {
@@ -83,11 +91,12 @@ export default function App() {
   );
 }
 
-// --- PAGE RÉSULTATS (AVEC LISTE D'HÔPITAUX) ---
+// --- PAGE RÉSULTATS ---
 function TriageResultsPage({ selectedSymptoms, locationName, onBack }: any) {
   const [diagnosis, setDiagnosis] = useState<DiagnosisResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [requestStatus, setRequestStatus] = useState<'idle' | 'sent' | 'waiting'>('idle');
 
   useEffect(() => {
     const fetchDiagnosis = async () => {
@@ -95,7 +104,6 @@ function TriageResultsPage({ selectedSymptoms, locationName, onBack }: any) {
         setLoading(true);
         setError(false);
 
-        // Transformation pour l'API : {"fievre": 1, ...}
         const evidenceObj = selectedSymptoms.reduce((acc: any, symptom: string) => {
           acc[symptom] = 1;
           return acc;
@@ -122,6 +130,31 @@ function TriageResultsPage({ selectedSymptoms, locationName, onBack }: any) {
     fetchDiagnosis();
   }, [selectedSymptoms, locationName]);
 
+  const handleAmbulanceRequest = async () => {
+    // On cherche la première ambulance avec le statut "libre"
+    const freeAmbulance = diagnosis?.ambulances?.find(a => a.status === "libre");
+
+    if (freeAmbulance) {
+      try {
+        // Appel au endpoint spécifique pour l'ID de l'ambulance
+        const response = await fetch(`${AMBULANCE_URL}/${freeAmbulance.ID}`, {
+          method: 'PUT', // On utilise PUT pour une mise à jour de statut
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: "en file d'attente" })
+        });
+
+        if (response.ok) {
+          setRequestStatus('sent');
+        } else {
+          setRequestStatus('waiting');
+        }
+      } catch (err) {
+        console.error("Erreur lors de la mise à jour de l'ambulance", err);
+        setRequestStatus('waiting');
+      }
+    }
+  };
+
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center space-y-4">
     <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
@@ -132,15 +165,16 @@ function TriageResultsPage({ selectedSymptoms, locationName, onBack }: any) {
   if (error) return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
     <AlertTriangle className="w-16 h-16 text-red-500 mb-6" />
-    <h2 className="text-2xl font-black mb-2">Tsy nandeha ny fikarohana</h2>
-    <button onClick={onBack} className="bg-blue-600 text-white px-10 py-5 rounded-2xl font-black shadow-lg uppercase text-xs">Hiverina</button>
+    <h2 className="text-2xl font-black mb-2 text-slate-900">Tsy nandeha ny fikarohana</h2>
+    <button onClick={onBack} className="bg-blue-600 text-white px-10 py-5 rounded-2xl font-black shadow-lg uppercase text-xs mt-4">Hiverina</button>
     </div>
   );
 
   const isCritical = diagnosis?.urgence === "critique" || diagnosis?.urgence === "urgent";
+  const hasFreeAmbulance = diagnosis?.ambulances?.some(a => a.status === "libre");
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-32">
+    <div className="max-w-4xl mx-auto px-6 py-32 font-['InterLocal']">
     {/* Carte Maladie */}
     <div className={`p-12 rounded-[55px] shadow-2xl border-4 text-center mb-12 ${
       isCritical ? 'bg-red-600 text-white border-red-400' : 'bg-white border-blue-50 text-slate-900'
@@ -158,7 +192,7 @@ function TriageResultsPage({ selectedSymptoms, locationName, onBack }: any) {
     <Building2 size={24} /> Hopitaly soso-kevitra
     </h3>
     <div className="grid gap-4">
-    {diagnosis?.etablissement && Array.isArray(diagnosis.etablissement) && diagnosis.etablissement.length > 0 ? (
+    {diagnosis?.etablissement && diagnosis.etablissement.length > 0 ? (
       diagnosis.etablissement.map((h, i) => (
         <div key={i} className="flex items-center justify-between p-6 bg-slate-50 rounded-[30px] border border-blue-50 hover:border-blue-200 transition-all group">
         <div>
@@ -172,18 +206,61 @@ function TriageResultsPage({ selectedSymptoms, locationName, onBack }: any) {
         </div>
       ))
     ) : (
-      <p className="text-center text-slate-400 italic py-6">Tsy misy hopitaly hita.</p>
+      <p className="text-center text-slate-400 italic py-6 font-medium">Tsy misy hopitaly hita.</p>
     )}
     </div>
     </div>
 
-    {/* SOS Button */}
-    <div className="bg-red-50 p-8 rounded-[40px] border border-red-100 flex flex-col md:flex-row items-center justify-between gap-6">
-    <div className="flex items-center gap-4">
-    <Ambulance className="text-red-600" size={40} />
-    <p className="text-sm font-black text-red-900 uppercase italic">Mila vonjy taitra haingana?</p>
+    {/* SECTION SOS / AMBULANCE DYNAMIQUE */}
+    <div className={`p-8 rounded-[40px] border flex flex-col md:flex-row items-center justify-between gap-6 transition-all duration-500 ${
+      requestStatus === 'idle' ? 'bg-red-50 border-red-100' :
+      requestStatus === 'sent' ? 'bg-green-50 border-green-100' : 'bg-amber-50 border-amber-100'
+    }`}>
+    <div className="flex items-center gap-6">
+    <div className={`p-5 rounded-3xl shadow-lg transition-colors ${
+      requestStatus === 'idle' ? 'bg-red-600' :
+      requestStatus === 'sent' ? 'bg-green-600' : 'bg-amber-500'
+    }`}>
+    {requestStatus === 'idle' && <Ambulance className="text-white" size={32} />}
+    {requestStatus === 'sent' && <CheckCircle2 className="text-white" size={32} />}
+    {requestStatus === 'waiting' && <Clock className="text-white" size={32} />}
     </div>
-    <button onClick={() => window.location.href="tel:124"} className="bg-red-600 text-white px-10 py-5 rounded-[25px] font-black text-xs shadow-xl uppercase">Antsoy ny 124</button>
+    <div>
+    <p className={`text-sm font-black uppercase italic ${
+      requestStatus === 'idle' ? 'text-red-900' :
+      requestStatus === 'sent' ? 'text-green-900' : 'text-amber-900'
+    }`}>
+    {requestStatus === 'idle' && (hasFreeAmbulance ? "Mila vonjy taitra haingana?" : "Tsy misy fiara malalaka")}
+    {requestStatus === 'sent' && "Ambulance en route!"}
+    {requestStatus === 'waiting' && "Ao anaty filaharana"}
+    </p>
+    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
+    {requestStatus === 'idle' && (hasFreeAmbulance ? "Tsindrio ny bokotra raha hangataka fiara" : "Miandrasa kely azafady...")}
+    {requestStatus === 'sent' && "Efa mivoaka ny fiara haka anao izao"}
+    {requestStatus === 'waiting' && "Nampidirina ao anaty lisitra ianao"}
+    </p>
+    </div>
+    </div>
+
+    {requestStatus === 'idle' ? (
+      <button
+      disabled={!hasFreeAmbulance} // Bouton désactivé si aucune ambulance libre
+      onClick={handleAmbulanceRequest}
+      className={`px-10 py-5 rounded-[25px] font-black text-xs shadow-xl uppercase transition-all ${
+        hasFreeAmbulance
+        ? 'bg-red-600 text-white hover:scale-105 active:scale-95'
+        : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+      }`}
+      >
+      Hampiantso fiara
+      </button>
+    ) : (
+      <div className={`px-8 py-4 rounded-2xl font-black text-[10px] uppercase border-2 ${
+        requestStatus === 'sent' ? 'border-green-200 text-green-600 bg-white' : 'border-amber-200 text-amber-600 bg-white'
+      }`}>
+      {requestStatus === 'sent' ? "Voaray ny fangatahana" : "Ao anaty filaharana"}
+      </div>
+    )}
     </div>
 
     <button onClick={onBack} className="mt-20 block mx-auto text-slate-900 font-black uppercase text-[10px] tracking-[0.4em] hover:text-blue-600 transition-colors underline underline-offset-8">
@@ -196,13 +273,13 @@ function TriageResultsPage({ selectedSymptoms, locationName, onBack }: any) {
 // --- LANDING PAGE ---
 function LandingPage({ onStart }: { onStart: () => void }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center text-center px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center text-center px-4 font-['InterLocal']">
     <div className="bg-white p-12 rounded-[55px] shadow-2xl border border-red-50 mb-10">
     <Heart className="w-20 h-20 text-red-600 animate-pulse" />
     </div>
-    <h1 className="text-4xl font-black mb-4 tracking-tighter italic text-blue-600">MADA-CARE <span className="text-slate-900">AI</span> System</h1>
-    <p className="max-w-xl text-xl text-slate-900 mb-12 font-light ">Fitaovana hifidianana toeram-pitsaboana mifanaraka amin'ny aretinao.</p>
-    <button onClick={onStart} className="bg-blue-600 text-white px-14 py-4 rounded-[35px] text-xl font-light shadow-2xl flex items-center gap-4 hover:scale-105 transition-all uppercase">Hanomboka <ChevronRight size={24} /></button>
+    <h1 className="text-5xl font-black mb-4 tracking-tighter text-blue-600">MADA-CARE <span className="text-slate-900">AI</span> System</h1>
+    <p className="max-w-xl text-xl text-slate-900 mb-12 font-light">Fitaovana hifidianana toeram-pitsaboana mifanaraka amin'ny aretinao.</p>
+    <button onClick={onStart} className="bg-blue-600 text-white px-14 py-6 rounded-[35px] text-xl font-bold shadow-2xl flex items-center gap-4 hover:scale-105 transition-all uppercase tracking-tight">Hanomboka <ChevronRight size={24} /></button>
     </div>
   );
 }
@@ -222,7 +299,7 @@ function SymptomsPage({ allSymptoms, selectedSymptoms, setSelectedSymptoms, onBa
   };
 
   return (
-    <div className="min-h-screen pt-28 pb-12 px-6">
+    <div className="min-h-screen pt-28 pb-12 px-6 font-['InterLocal']">
     <div className="max-w-7xl mx-auto grid lg:grid-cols-12 gap-8">
     <div className="lg:col-span-8 space-y-6">
     <div className="bg-white p-6 rounded-[35px] shadow-sm border border-slate-200 flex items-center gap-4">
@@ -230,7 +307,7 @@ function SymptomsPage({ allSymptoms, selectedSymptoms, setSelectedSymptoms, onBa
     <input
     type="text"
     placeholder="Inona no tsapanao?..."
-    className="w-full bg-transparent outline-none font-medium text-xl"
+    className="w-full bg-transparent outline-none font-medium text-xl text-slate-900"
     onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
     />
     </div>
@@ -244,14 +321,14 @@ function SymptomsPage({ allSymptoms, selectedSymptoms, setSelectedSymptoms, onBa
         selectedSymptoms.includes(s) ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'bg-slate-50 border-transparent text-slate-600 hover:bg-white hover:border-blue-100'
       }`}
       >
-      <span className="text-sm font-light">{s}</span>
+      <span className="text-sm font-medium">{s}</span>
       </button>
     ))}
     </div>
     <div className="mt-8 flex justify-between items-center pt-8 border-t">
-    <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-3 bg-slate-100 rounded-xl disabled:opacity-20"><ChevronLeft/></button>
+    <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-3 bg-slate-100 rounded-xl disabled:opacity-20 text-slate-900"><ChevronLeft/></button>
     <span className="text-xs font-black text-slate-400 tracking-widest uppercase">Pejy {currentPage} / {totalPages || 1}</span>
-    <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-3 bg-slate-100 rounded-xl disabled:opacity-20"><ChevronRight/></button>
+    <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-3 bg-slate-100 rounded-xl disabled:opacity-20 text-slate-900"><ChevronRight/></button>
     </div>
     </div>
     </div>
@@ -271,7 +348,7 @@ function SymptomsPage({ allSymptoms, selectedSymptoms, setSelectedSymptoms, onBa
     {selectedSymptoms.length > 0 && (
       <button onClick={onContinue} className="w-full bg-blue-600 text-white py-6 rounded-[28px] font-black text-sm shadow-2xl hover:bg-blue-700 transition-all uppercase tracking-tighter">Hijerjy ny vokatra</button>
     )}
-    <button onClick={onBack} className="w-full mt-4 text-[10px] font-black text-slate-900 text-center uppercase tracking-widest hover:text-blue-600">Hiverina</button>
+    <button onClick={onBack} className="w-full mt-4 text-[10px] font-black text-slate-900 text-center uppercase tracking-widest hover:text-blue-600 transition-colors">Hiverina</button>
     </div>
     </div>
     </div>
